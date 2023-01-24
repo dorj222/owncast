@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"unicode"
 
 	"github.com/owncast/owncast/activitypub/outbox"
 	"github.com/owncast/owncast/controllers"
@@ -214,6 +215,32 @@ func SetAdminPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	controllers.WriteSimpleResponse(w, true, "changed")
+}
+
+func isValid(s string) bool {
+	var (
+		hasMinLen  = false
+		hasUpper   = false
+		hasLower   = false
+		hasNumber  = false
+		hasSpecial = false
+	)
+	if len(s) >= 8 {
+		hasMinLen = true
+	}
+	for _, char := range s {
+		switch {
+		case unicode.IsUpper(char):
+			hasUpper = true
+		case unicode.IsLower(char):
+			hasLower = true
+		case unicode.IsNumber(char):
+			hasNumber = true
+		case unicode.IsPunct(char) || unicode.IsSymbol(char):
+			hasSpecial = true
+		}
+	}
+	return hasMinLen && hasUpper && hasLower && hasNumber && hasSpecial
 }
 
 // SetLogo will handle a new logo image file being uploaded.
@@ -806,8 +833,9 @@ func SetStreamKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := data.SetStreamKeys(streamKeys.Value); err != nil {
-		controllers.WriteSimpleResponse(w, false, err.Error())
+	UserInput := streamKeys.Value[len(streamKeys.Value)-1].Key
+	if err := !isValid(UserInput); err {
+		controllers.WriteSimpleResponse(w, false, "Your stream key does not meet the password complexity rule!")
 		return
 	}
 
