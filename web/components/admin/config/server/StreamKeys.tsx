@@ -1,11 +1,14 @@
 import React, { useContext, useState } from 'react';
-import { Table, Space, Button, Typography, Alert, Input, Form } from 'antd';
+import { Table, Space, Button, Typography, Alert, Input, Form, Tooltip } from 'antd';
 import dynamic from 'next/dynamic';
 import { ServerStatusContext } from '../../../../utils/server-status-context';
 
 import { fetchData, UPDATE_STREAM_KEYS } from '../../../../utils/apis';
+import { UpdateArgs } from '../../../../types/config-section';
 
 const { Paragraph } = Typography;
+
+const COPY_TOOLTIP_TIMEOUT = 3000;
 
 const regex = /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#$%^&*]).{8,192}$/;
 
@@ -23,6 +26,14 @@ const PlusOutlined = dynamic(() => import('@ant-design/icons/PlusOutlined'), {
   ssr: false,
 });
 
+const CopyOutlined = dynamic(() => import('@ant-design/icons/CopyOutlined'), {
+  ssr: false,
+});
+
+const RedoOutlined = dynamic(() => import('@ant-design/icons/RedoOutlined'), {
+  ssr: false,
+});
+
 const saveKeys = async (keys, setError) => {
   try {
     await fetchData(UPDATE_STREAM_KEYS, {
@@ -37,6 +48,8 @@ const saveKeys = async (keys, setError) => {
 };
 
 const AddKeyForm = ({ setShowAddKeyForm, setFieldInConfigState, streamKeys, setError }) => {
+  const [formDataValues, setFormDataValues] = useState(null);
+  const [copyIsVisible, setCopyVisible] = useState(false);
   const [hasChanged, setHasChanged] = useState(false);
   const [form] = Form.useForm();
   const { Item } = Form;
@@ -61,6 +74,34 @@ const AddKeyForm = ({ setShowAddKeyForm, setFieldInConfigState, streamKeys, setE
       setHasChanged(false);
     }
   };
+
+  const handleFieldChange = ({ fieldName, value }: UpdateArgs) => {
+    setFormDataValues({
+      ...formDataValues,
+      [fieldName]: value,
+    });
+  };
+
+  function generateStreamKey() {
+    let key = '';
+    const s = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    key = Array.apply(20, Array(30))
+      .map(() => s.charAt(Math.floor(Math.random() * s.length)))
+      .join('');
+
+    handleFieldChange({ fieldName: 'streamKey', value: key });
+  }
+
+  function copyStreamKey() {
+    navigator.clipboard.writeText(formDataValues.streamKey).then(() => {
+      setCopyVisible(true);
+      setTimeout(() => setCopyVisible(false), COPY_TOOLTIP_TIMEOUT);
+    });
+  }
+
+  if (!formDataValues) {
+    return null;
+  }
 
   return (
     <Form
@@ -115,6 +156,24 @@ const AddKeyForm = ({ setShowAddKeyForm, setFieldInConfigState, streamKeys, setE
       <Button type="primary" htmlType="submit" disabled={!hasChanged}>
         Add
       </Button>
+      <div
+        className="streamkey-actions"
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          marginTop: '5px',
+          marginInlineStart: '5px',
+          columnGap: '5px',
+        }}
+      >
+        <Tooltip title="Generate a stream key">
+          <Button icon={<RedoOutlined />} size="small" onClick={generateStreamKey} />
+        </Tooltip>
+
+        <Tooltip className="copy-tooltip" title={copyIsVisible ? 'Copied!' : 'Copy to clipboard'}>
+          <Button icon={<CopyOutlined />} size="small" onClick={copyStreamKey} />
+        </Tooltip>
+      </div>
     </Form>
   );
 };
